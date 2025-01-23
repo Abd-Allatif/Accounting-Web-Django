@@ -386,6 +386,7 @@ def reciepts(request,username):
             countity = float(request.data.get('countity'))
             buy_price = float(request.data.get('buy_price'))
             sell_price = float(request.data.get('sell_price'))
+            date = request.data.get('date')
             notes = request.data.get('notes')
             
             if user_data:
@@ -404,6 +405,7 @@ def reciepts(request,username):
                                             supply=supplies_instance,countity=countity,buy_price=buy_price,
                                             sell_price=sell_price,
                                             total = calculateTotalPrice(countity,supplies_instance.unit,buy_price),
+                                            date = date,
                                             notes=notes)
                         
                     return Response({'message': 'Supplies Bought successfully!'}, status=status.HTTP_200_OK)
@@ -436,6 +438,7 @@ def edit_reciepts(request, username):
             countity = float(request.data.get('countity'))
             buy_price = float(request.data.get('buy_price'))
             sell_price = float(request.data.get('sell_price'))
+            date = request.data.get('date')
             notes = request.data.get('notes')
 
             if supplies:
@@ -450,6 +453,7 @@ def edit_reciepts(request, username):
                     reciept_instance.buy_price = buy_price
                     reciept_instance.sell_price = sell_price
                     reciept_instance.total = calculateTotalPrice(countity,supplies_instance.unit,buy_price)
+                    reciept_instance.date = date
                     reciept_instance.notes = notes
                     reciept_instance.save()
                     
