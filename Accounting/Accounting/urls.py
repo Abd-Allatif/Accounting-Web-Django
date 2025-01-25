@@ -53,6 +53,7 @@ urlpatterns = [
     path('api/users/<str:username>/search-inventory/<str:query>/', views.search_inventory),
     path('api/users/calculate/', views.ImageAnalysisView.as_view()),
     path('api/data/export/export-excel/<str:username>/', views.export_all_data_excel, name='export_all_data_excel'),
+    path('api/data/import/<str:username>/', views.import_Data, name='import-data'),
     path('api/data/export/export-pdf/<str:username>/', views.export_all_data_pdf, name='export_all_data_pdf'),
 
 ]

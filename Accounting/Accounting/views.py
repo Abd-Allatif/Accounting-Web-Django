@@ -1,5 +1,7 @@
 import pandas as pd
 import logging
+from django.http import HttpResponseBadRequest, HttpResponseNotAllowed, JsonResponse
+from django.db import IntegrityError, transaction
 from django.http import HttpResponse
 from .models import *
 from reportlab.lib.pagesizes import letter
@@ -1508,27 +1510,35 @@ def make_timezone_unaware(df):
 def export_all_data_excel(request, username):
     user = User.objects.get(user_name=username)
 
-    # Get data from all models related to the user
-    type_data = pd.DataFrame(list(Type.objects.filter(user=user).values()))
-    supplies_data = pd.DataFrame(list(Supplies.objects.filter(user=user).values()))
-    Dispatch_data = pd.DataFrame(list(DispatchSupply.objects.filter(user=user).values()))
-    customer_name_data = pd.DataFrame(list(CustomerName.objects.filter(user=user).values()))
-    customer_data = pd.DataFrame(list(Customer.objects.filter(user=user).values()))
-    employee_data = pd.DataFrame(list(Employee.objects.filter(user=user).values()))
-    money_fund_data = pd.DataFrame(list(MoneyFund.objects.filter(user=user).values()))
-    sell_data = pd.DataFrame(list(Sell.objects.filter(user=user).values()))
-    reciept_data = pd.DataFrame(list(Reciept.objects.filter(user=user).values()))
-    money_income_data = pd.DataFrame(list(MoneyIncome.objects.filter(user=user).values()))
-    payment_data = pd.DataFrame(list(Payment.objects.filter(user=user).values()))
-    inventory_data = pd.DataFrame(list(Inventory.objects.filter(user=user).values()))
+    # Helper function to safely drop 'user_id' if it exists
+    def prepare_data(queryset):
+        df = pd.DataFrame(list(queryset))
+        if not df.empty and 'user_id' in df.columns:
+            df = df.drop(columns=['user_id'])
+        return df
+
+    # Get data from all models (automatically drops 'user_id' if present)
+    type_data = prepare_data(Type.objects.filter(user=user).values())
+    supplies_data = prepare_data(Supplies.objects.filter(user=user).values())
+    Dispatch_data = prepare_data(DispatchSupply.objects.filter(user=user).values())
+    customer_name_data = prepare_data(CustomerName.objects.filter(user=user).values())
+    customer_data = prepare_data(Customer.objects.filter(user=user).values())
+    employee_data = prepare_data(Employee.objects.filter(user=user).values())
+    money_fund_data = prepare_data(MoneyFund.objects.filter(user=user).values())
+    sell_data = prepare_data(Sell.objects.filter(user=user).values())
+    reciept_data = prepare_data(Reciept.objects.filter(user=user).values())
+    money_income_data = prepare_data(MoneyIncome.objects.filter(user=user).values())
+    payment_data = prepare_data(Payment.objects.filter(user=user).values())
+    inventory_data = prepare_data(Inventory.objects.filter(user=user).values())
 
     # Ensure all datetime columns are timezone-unaware
-    data_frames = [type_data, supplies_data, Dispatch_data, customer_name_data, customer_data, employee_data, money_fund_data, sell_data, reciept_data, money_income_data, payment_data, inventory_data]
+    data_frames = [type_data, supplies_data, Dispatch_data, customer_name_data, customer_data, 
+                   employee_data, money_fund_data, sell_data, reciept_data, money_income_data, 
+                   payment_data, inventory_data]
     data_frames = [make_timezone_unaware(df) for df in data_frames]
 
-    # Create a Pandas Excel writer using openpyxl as the engine.
+    # Create Excel file and adjust column widths (rest of your existing code)
     with pd.ExcelWriter('all_data.xlsx', engine='openpyxl') as writer:
-        # Write each DataFrame to a specific sheet
         data_frames[0].to_excel(writer, sheet_name='Type', index=False)
         data_frames[1].to_excel(writer, sheet_name='Supplies', index=False)
         data_frames[2].to_excel(writer, sheet_name='DispatchSupply', index=False)
@@ -1542,26 +1552,116 @@ def export_all_data_excel(request, username):
         data_frames[10].to_excel(writer, sheet_name='Payment', index=False)
         data_frames[11].to_excel(writer, sheet_name='Inventory', index=False)
 
+        # Auto-adjust column widths
         workbook = writer.book
         for sheet_name in writer.sheets:
             worksheet = workbook[sheet_name]
             for col in worksheet.columns:
                 max_length = 0
-                column = col[0].column_letter  # Get the column name
+                column = col[0].column_letter
                 for cell in col:
                     if cell.value:
                         max_length = max(max_length, len(str(cell.value)))
                 adjusted_width = (max_length + 2)
                 worksheet.column_dimensions[column].width = adjusted_width
 
-    # Open the file in binary mode to read
+    # Return the Excel file as a response
     with open('all_data.xlsx', 'rb') as excel_file:
         response = HttpResponse(excel_file.read(), content_type='application/vnd.ms-excel')
         response['Content-Disposition'] = f'attachment; filename="{username}_all_data.xlsx"'
         
     return response
 
+def make_timezone_aware(df):
+    for col in df.columns:
+        if pd.api.types.is_datetime64_any_dtype(df[col]):
+            # Convert naive datetime to UTC-aware
+            if df[col].dt.tz is None:
+                df[col] = df[col].dt.tz_localize('UTC')
+    return df
 
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def import_Data(request, username):
+    # Get user
+    try:
+        user = User.objects.get(user_name=username)
+    except User.DoesNotExist:
+        return HttpResponseBadRequest('User not found')
+    
+    # Check if file is uploaded
+    if 'file' not in request.FILES:
+        return HttpResponseBadRequest('No file uploaded')
+    
+    excel_file = request.FILES['file']
+    
+    # Define model mapping based on sheet names
+    model_map = {
+        'Type': Type,
+        'Supplies': Supplies,
+        'DispatchSupply': DispatchSupply,
+        'CustomerName': CustomerName,
+        'Customer': Customer,
+        'Employee': Employee,
+        'MoneyFund': MoneyFund,
+        'Sell': Sell,
+        'Reciept': Reciept,
+        'MoneyIncome': MoneyIncome,
+        'Payment': Payment,
+        'Inventory': Inventory,
+    }
+    
+    # Order of processing sheets to respect potential dependencies
+    sheet_order = [
+        'Type', 'Supplies', 'DispatchSupply', 'CustomerName', 'Customer',
+        'Employee', 'MoneyFund', 'Sell', 'Reciept', 'MoneyIncome',
+        'Payment', 'Inventory'
+    ]
+    
+    try:
+        with transaction.atomic():  # Use transaction to ensure data integrity
+            xls = pd.ExcelFile(excel_file)
+            processed_sheets = set()
+            
+            for sheet_name in sheet_order:
+                if sheet_name not in xls.sheet_names:
+                    continue  # Skip if sheet not found
+                if sheet_name in processed_sheets:
+                    continue
+                processed_sheets.add(sheet_name)
+                
+                model_class = model_map.get(sheet_name)
+                if not model_class:
+                    continue  # Skip unmapped sheets
+                
+                # Read sheet data
+                df = pd.read_excel(xls, sheet_name=sheet_name)
+                
+                # Drop 'id' column if present
+                if 'id' in df.columns:
+                    df = df.drop(columns=['id'])
+                
+                # Convert timezone-naive datetimes to UTC-aware
+                df = make_timezone_aware(df)
+                
+                # Convert NaN to None for database fields
+                df = df.where(pd.notnull(df), None)
+                
+                # Import records
+                for _, row in df.iterrows():
+                    data = row.to_dict()
+                    
+                    # Create model instance without 'id' and assign user
+                    instance = model_class(user=user, **data)
+                    instance.save()
+                    
+    except Exception as e:
+        return HttpResponseBadRequest(f'Error importing data: {str(e)}')
+    except User.DoesNotExist:
+        return HttpResponseBadRequest(f'User {username} not found')
+    except Exception as e:
+        return HttpResponseBadRequest(f'Error: {str(e)}')
+    return HttpResponse('Data imported successfully')
 
 
 def export_all_data_pdf(request, username):
