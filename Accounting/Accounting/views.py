@@ -1,7 +1,7 @@
 import pandas as pd
 import logging
-from django.http import HttpResponseBadRequest, HttpResponseNotAllowed, JsonResponse
-from django.db import IntegrityError, transaction
+from django.http import HttpResponseBadRequest, JsonResponse
+from django.db import  transaction
 from django.http import HttpResponse
 from .models import *
 from reportlab.lib.pagesizes import letter
@@ -1580,88 +1580,95 @@ def make_timezone_aware(df):
                 df[col] = df[col].dt.tz_localize('UTC')
     return df
 
+def check_duplicate(model_class, user, data):
+    # Define unique constraints for each model
+    unique_fields_map = {
+        'Type': ['type'],
+        'Supplies': ['supply_name'],
+        'CustomerName': ['customer_name'],
+        'Employee': ['employee_name'],
+    }
+    
+    unique_fields = unique_fields_map.get(model_class.__name__)
+    if not unique_fields:
+        return False
+    
+    filters = {field: data[field] for field in unique_fields}
+    filters['user'] = user
+    return model_class.objects.filter(**filters).exists()
+
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def import_Data(request, username):
-    # Get user
     try:
         user = User.objects.get(user_name=username)
     except User.DoesNotExist:
-        return HttpResponseBadRequest('User not found')
+        return JsonResponse({'error': 'User not found'}, status=400)
     
-    # Check if file is uploaded
     if 'file' not in request.FILES:
-        return HttpResponseBadRequest('No file uploaded')
-    
-    excel_file = request.FILES['file']
-    
-    # Define model mapping based on sheet names
-    model_map = {
-        'Type': Type,
-        'Supplies': Supplies,
-        'DispatchSupply': DispatchSupply,
-        'CustomerName': CustomerName,
-        'Customer': Customer,
-        'Employee': Employee,
-        'MoneyFund': MoneyFund,
-        'Sell': Sell,
-        'Reciept': Reciept,
-        'MoneyIncome': MoneyIncome,
-        'Payment': Payment,
-        'Inventory': Inventory,
-    }
-    
-    # Order of processing sheets to respect potential dependencies
-    sheet_order = [
-        'Type', 'Supplies', 'DispatchSupply', 'CustomerName', 'Customer',
-        'Employee', 'MoneyFund', 'Sell', 'Reciept', 'MoneyIncome',
-        'Payment', 'Inventory'
-    ]
+        return JsonResponse({'error': 'No file uploaded'}, status=400)
     
     try:
-        with transaction.atomic():  # Use transaction to ensure data integrity
+        excel_file = request.FILES['file']
+        model_map = {
+            'Type': Type,
+            'Supplies': Supplies,
+            'DispatchSupply': DispatchSupply,
+            'CustomerName': CustomerName,
+            'Customer': Customer,
+            'Employee': Employee,
+            'MoneyFund': MoneyFund,
+            'Sell': Sell,
+            'Reciept': Reciept,
+            'MoneyIncome': MoneyIncome,
+            'Payment': Payment,
+            'Inventory': Inventory,
+        }
+        sheet_order = [
+            'Type', 'Supplies', 'DispatchSupply', 'CustomerName', 'Customer',
+            'Employee', 'MoneyFund', 'Sell', 'Reciept', 'MoneyIncome',
+            'Payment', 'Inventory'
+        ]
+        
+        with transaction.atomic():
             xls = pd.ExcelFile(excel_file)
             processed_sheets = set()
             
             for sheet_name in sheet_order:
+                if sheet_name == 'MoneyFund':
+                    continue
                 if sheet_name not in xls.sheet_names:
-                    continue  # Skip if sheet not found
+                    continue
                 if sheet_name in processed_sheets:
                     continue
                 processed_sheets.add(sheet_name)
                 
                 model_class = model_map.get(sheet_name)
                 if not model_class:
-                    continue  # Skip unmapped sheets
+                    continue
                 
-                # Read sheet data
                 df = pd.read_excel(xls, sheet_name=sheet_name)
-                
-                # Drop 'id' column if present
                 if 'id' in df.columns:
                     df = df.drop(columns=['id'])
                 
-                # Convert timezone-naive datetimes to UTC-aware
                 df = make_timezone_aware(df)
-                
-                # Convert NaN to None for database fields
                 df = df.where(pd.notnull(df), None)
                 
-                # Import records
                 for _, row in df.iterrows():
                     data = row.to_dict()
+                    if check_duplicate(model_class, user, data):
+                        continue
                     
-                    # Create model instance without 'id' and assign user
                     instance = model_class(user=user, **data)
                     instance.save()
-                    
+        
     except Exception as e:
-        return HttpResponseBadRequest(f'Error importing data: {str(e)}')
-    except User.DoesNotExist:
-        return HttpResponseBadRequest(f'User {username} not found')
-    except Exception as e:
-        return HttpResponseBadRequest(f'Error: {str(e)}')
-    return HttpResponse('Data imported successfully')
+        return JsonResponse({'error': f'Error importing data: {str(e)}'}, status=400)
+    
+    return JsonResponse({'message': 'Data imported successfully'})
+
+
+
 
 
 def export_all_data_pdf(request, username):
