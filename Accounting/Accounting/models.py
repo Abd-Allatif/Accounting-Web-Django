@@ -9,7 +9,6 @@ from .calculations import calculateTotalPrice
 
 # All Models Have Been Finnshed
 
-# Creating A custom User Model That Include New Fields
 class UserManager(BaseUserManager):
     def create_user(self, user_name, email, password=None, **extra_fields):
         if not email:
@@ -25,18 +24,11 @@ class UserManager(BaseUserManager):
         extra_fields.setdefault('is_staff', True)
         extra_fields.setdefault('is_superuser', True)
         return self.create_user(user_name, email, password, **extra_fields)
-
-# User Model
 class User (AbstractBaseUser,PermissionsMixin):
-    # User Name
     user_name = models.CharField(max_length=100,primary_key=True)
-    # Email
     email = models.CharField(max_length=250,unique=True)
-    # # Passowrd Taken from UserManager
     issatup = models.BooleanField(default=False)
-    # Budegt
     budget = models.FloatField(default=0)
-    # Password Reset Code
     password_reset_code = models.CharField(max_length=20, blank=True, null=True)
 
     is_active = models.BooleanField(default=True,editable=False) 
@@ -66,25 +58,19 @@ class User (AbstractBaseUser,PermissionsMixin):
     USERNAME_FIELD = 'user_name'
     REQUIRED_FIELDS = ['email']
 
-    # Creating a Function for Encrypting The Passowrd (Hashing)
     def set_password(self,raw_password):
-        hashed_password = bcrypt.hashpw(raw_password.encode('utf-8'), bcrypt.gensalt())  # type: ignore
+        hashed_password = bcrypt.hashpw(raw_password.encode('utf-8'), bcrypt.gensalt())
         self.password = hashed_password.decode('utf-8')
-    # Creating a Function To check for Encrypted Password (Hashed)
     def check_password(self,raw_password):
         return bcrypt.checkpw(raw_password.encode('utf-8'), self.password.encode('utf-8'))
     def __str__(self):
         return f'{self.user_name}'
 
-# Using Django Signals to Alter Other Tables
-
-# Create Money Fund
 @receiver(post_save, sender=User)
 def create_money_fund(sender, instance, created, **kwargs):
     if created:
         MoneyFund.objects.create(user=instance)
 
-# Edit the Money Fund If There is Any Field Deletion For The User
 @receiver(post_delete,sender = User)
 def update_permanant_fund_on_delete(sender,instance,**kwargs):
     money_fund = MoneyFund.objects.get(user = instance.user_name)
@@ -93,7 +79,6 @@ def update_permanant_fund_on_delete(sender,instance,**kwargs):
         money_fund.permanant_fund -= instance.budget
         money_fund.save()
 
-# Edit the Money Fund If There is Any Edition for the User 
 @receiver(pre_save, sender=User)
 def update_permanant_fund_on_edit(sender, instance, **kwargs):
     try:
@@ -104,7 +89,6 @@ def update_permanant_fund_on_edit(sender, instance, **kwargs):
             money_fund = MoneyFund.objects.get(user=instance.user_name)
             
             if money_fund:
-                # Adjust the permanent fund based on the budget change
                 money_fund.permanant_fund -= old_budget
                 money_fund.permanant_fund += new_budget
                 money_fund.save()
@@ -112,34 +96,23 @@ def update_permanant_fund_on_edit(sender, instance, **kwargs):
         # This block will be executed during user creation, ignore it
         pass
 
-#Creating the Type Model /Done/Checked
 class Type(models.Model):
     type = models.CharField(max_length=50,primary_key=True)
     user = models.ForeignKey(User,on_delete=models.CASCADE)
     def __str__(self):
         return f'{self.type}'
 
-#Creating the Supplies Model /Done/Checked
 class Supplies(models.Model):
     user = models.ForeignKey(User,on_delete=models.CASCADE)
-    # Type Fk
     type = models.ForeignKey(Type,on_delete=models.CASCADE,default="")
-    # Supply Name
     supply_name = models.CharField(max_length=50,primary_key=True)
-    # Unit 
     unit = models.CharField(max_length=10,default='Peace')
-    # Countity
     countity = models.FloatField(default=0)
-    # Buy Price
     buy_price = models.FloatField(default=0)
-    # Sell Price
     sell_price = models.FloatField(default=0)
-    # BarCode
-    # Later
     def __str__(self):
         return f'{self.supply_name}'
 
-# Creating Dispatch Supplies Model /Done/Checked
 class DispatchSupply(models.Model):
     user = models.ForeignKey(User,on_delete=models.CASCADE)
     supply = models.ForeignKey(Supplies,on_delete=models.CASCADE,default="")
@@ -151,7 +124,6 @@ class DispatchSupply(models.Model):
     def __str__(self):
         return f'{self.supply} Countity: {self.countity}'
 
-# Updating the Countity When Dispatching
 @receiver(post_save, sender=DispatchSupply)
 def update_supply_and_fund(sender, instance, created, **kwargs):
     if created:
@@ -159,12 +131,10 @@ def update_supply_and_fund(sender, instance, created, **kwargs):
         countity = instance.countity
         buy_price = instance.buy_price
 
-        # Update supply countity
         if supply.countity >= countity:
             supply.countity -= countity
             supply.save()
 
-            # Update money fund
             money_fund = MoneyFund.objects.get(user=instance.user)
             if money_fund.permanant_fund >= calculateTotalPrice(countity,supply.unit, buy_price):
                 money_fund.permanant_fund -= calculateTotalPrice(countity,supply.unit, buy_price)
@@ -174,27 +144,22 @@ def update_supply_and_fund(sender, instance, created, **kwargs):
         else:
             raise ValueError("Not enough supplies to dispatch")
 
-# Updating Supply Countity If a Disptach is Deleted 
 @receiver(post_delete, sender=DispatchSupply)
 def handle_dispatch_deletion(sender, instance, **kwargs):
     supply = instance.supply
     countity = instance.countity
     buy_price = instance.buy_price
 
-    # Revert supply countity
     supply.countity += countity
     supply.save()
 
-    # Revert money fund
     money_fund = MoneyFund.objects.get(user=instance.user)
     money_fund.permanant_fund += calculateTotalPrice(countity,supply.unit, buy_price)
     money_fund.save()
 
-# Updating The Counitity on Disptach Edition
 @receiver(pre_save, sender=DispatchSupply)
 def handle_dispatch_update(sender, instance, **kwargs):
     try:
-        # Get the original state before saving
         original = DispatchSupply.objects.get(pk=instance.pk)
     except DispatchSupply.DoesNotExist:
         original = None
@@ -203,13 +168,10 @@ def handle_dispatch_update(sender, instance, **kwargs):
         supply = instance.supply
         countity_difference = instance.countity - original.countity
 
-        # Update supply countity
         if supply.countity + original.countity >= instance.countity:
             supply.countity -= countity_difference
             supply.save()
 
-            
-            # Update money fund
             money_fund = MoneyFund.objects.get(user=instance.user)
             if money_fund.permanant_fund + calculateTotalPrice(original.countity ,supply.unit,  original.buy_price) >= calculateTotalPrice(instance.countity ,supply.unit,  instance.buy_price):
                 money_fund.permanant_fund -= calculateTotalPrice(countity_difference ,supply.unit,  instance.buy_price)
@@ -220,8 +182,6 @@ def handle_dispatch_update(sender, instance, **kwargs):
         else:
             raise ValueError("Not enough supplies to dispatch")
 
-
-#Creating the Permanant Customer Model /Done/
 class CustomerName(models.Model):
     user = models.ForeignKey(User,on_delete=models.CASCADE)
     customer_name = models.CharField(max_length=50,primary_key=True)
@@ -230,37 +190,22 @@ class CustomerName(models.Model):
     def __str__(self):
         return f'{self.customer_name}'
 
-#Creating the Permanant Customer Sells Model /Done/
 class Customer(models.Model):
     user = models.ForeignKey(User,on_delete=models.CASCADE)
-    # Customer Name
     customer_name = models.ForeignKey(CustomerName,on_delete=models.CASCADE)
-    # Customer Date Of Buying
     date_of_buying = models.DateField(null=True,blank=True)
-    # Customer Supply Fk
     supply = models.ForeignKey(Supplies,on_delete=models.CASCADE,default="")
-    # Supply Price
     price = models.FloatField(default=0)
-    # Supllys Countity
     countity = models.FloatField(default=0)
-    # Total Value: Countity x Price
     total = models.FloatField(editable=False,default=0)
-    # The Debt
     debt = models.FloatField(default=0,null=True,blank=True)
-    # paid
     paid = models.FloatField(default=0,null=True,blank=True)
-    # Notes
     notes = models.CharField(max_length=400,null=True,blank=True)
 
     def __str__(self):
         return f'{self.customer_name}'
 
 #---------------------------------------------------------------
-# Defining The functions to Update Related Tables
-# On Customer
-
-# /Done Update MoneyFund by Customer If debt or If not debt/
-
 @receiver(pre_save, sender=Customer)
 def capture_old_customer_instance(sender, instance, **kwargs):
     if instance.pk:
@@ -319,7 +264,6 @@ def handle_customer_save(sender, instance, created, **kwargs):
     money_fund.save()
     customer_name.save()
 
-# Handle customer deletion
 @receiver(post_delete, sender=Customer)
 def handle_customer_deletion(sender, instance, **kwargs):
     customer_name = instance.customer_name
@@ -343,15 +287,10 @@ def handle_customer_deletion(sender, instance, **kwargs):
 
 
 #---------------------------------------------------------------
-
-#Creating the Employee Model
 class Employee(models.Model):
     user = models.ForeignKey(User,on_delete=models.CASCADE)
-    
     employee_name = models.CharField(max_length=50,primary_key=True)
-
     date_of_employment = models.DateField(blank=True,null=True)
-
     salary = models.FloatField(default=0)
 
     def __str__(self):
@@ -360,39 +299,24 @@ class Employee(models.Model):
 #Creating the MoneyFund Model /Done/
 class MoneyFund(models.Model):
     user = models.OneToOneField(User,on_delete=models.CASCADE)
-    
     permanant_fund = models.FloatField(default=0)
-
     sells_fund = models.FloatField(default=0)
 
     def __str__(self):
         return f'{self.permanant_fund} {self.sells_fund}'
 
-
-
-#Creating the Sell Model /Done/
 class Sell(models.Model):
     user = models.ForeignKey(User,on_delete=models.CASCADE)
-    # Supply Fk
     supply = models.ForeignKey(Supplies,on_delete=models.CASCADE)
-    # Countity
     countity = models.FloatField()
-    # Price
     price = models.FloatField()
-    # Total
     total = models.FloatField(default=0)
-    # Date
     date = models.DateField(null=True,blank=True)
-    # Notes
     notes = models.CharField(max_length=400,null=True,blank=True)
 
     def __str__(self):
         return f'Date: {self.date} Supply: {self.supply} Total: {self.total}'
 
-# Defining The functions to Update Related Tables
-# On Sells Table
-
-# /Done Update MoneyFund by Sell/
 @receiver(post_save,sender=Sell)
 def update_money_on_sell (sender,instance,**kwargs):
     money_fund = MoneyFund.objects.get(user=instance.user)
@@ -423,7 +347,6 @@ def update_money_on_edit(sender,instance,**kwargs):
             money_fund.save()
 
 #---------------------------------------------------------------
-# /Done Update Supply by Sell/
 @receiver(post_save,sender=Sell)
 def update_supply_on_sells(sender,instance,**kwargs):
      if instance.supply.pk:
@@ -450,41 +373,22 @@ def update_supply_edit_on_sells(sender,instance,**kwargs):
             supply.countity += old_countity
             supply.save()
 
-#Creating the Reciept (Supply Buying) Model /Done/
 class Reciept(models.Model):
     user = models.ForeignKey(User,on_delete=models.CASCADE)
-    # Type Fk
     type = models.ForeignKey(Type,on_delete=models.CASCADE)
-    # Supply Fk
     supply = models.ForeignKey(Supplies,on_delete=models.CASCADE)
-    # Countity
     countity = models.FloatField()
-    # Buy Price
     buy_price = models.FloatField()
-    # Sell Price
     sell_price = models.FloatField()
-    # Total Value: Buy Price x Countity
     total = models.FloatField(default=0)
-    # Date
     date = models.DateField(null=True,blank=True)
-    # Notes
     notes = models.CharField(max_length=400,null=True,blank=True)
-
-    # Defining a Function to Calculate the Total Value: Countity x Price
-    # def save(self,*args,**kwargs):
-    #     self.total = self.countity * self.buy_price
-    #      # Saving Changes``
-    #     super(Reciept,self).save(*args,**kwargs)
-
 
     def __str__(self):
         return f'Type: {self.type} Supply:{self.supply}'
 
 #---------------------------------------------------------------
-# Defining The functions to Update Related Tables
-# On Reciept
 
-# /Done Update MoneyFund by Reciept/
 @receiver(post_save,sender=Reciept)
 def update_money_on_reciepts(sender,instance,**kwargs):
     money_fund = MoneyFund.objects.get(user=instance.user)
@@ -515,7 +419,6 @@ def update_money_ediut_on_reciepts(sender,instance,**kwargs):
 
 #---------------------------------------------------------------
 
-# /Done Update Supply by Reciept/
 @receiver(post_save, sender=Reciept)
 def update_supply_on_receipts(sender, instance, **kwargs):
     supply, created = Supplies.objects.get_or_create(
@@ -552,16 +455,11 @@ def update_supply_edit_on_receipt(sender,instance,**kwargs):
             supply.countity -= old_countity
             supply.save()
 
-#Creating the MoneyIncome Model  /Done/
 class MoneyIncome(models.Model):
     user = models.ForeignKey(User,on_delete=models.CASCADE)
-    # Money Comming from
     money_from = models.ForeignKey(CustomerName,on_delete=models.CASCADE,null=True,blank=True)
-    # Total Value Incoming
     total = models.FloatField(default=0)
-    # Date
     date = models.DateField(null=True,blank=True)
-    # notes
     notes = models.CharField(max_length=400,null=True,blank=True)
 
     def __str__(self):
@@ -573,7 +471,6 @@ class MoneyIncome(models.Model):
 def reverse_debt_on_payment_deletion(sender, instance, **kwargs):
     customer_name = instance.money_from
 
-    # Update individual customer records
     customers = Customer.objects.filter(customer_name=customer_name).order_by('date_of_buying')
     
     remaining_payment = instance.total
@@ -594,12 +491,10 @@ def reverse_debt_on_payment_deletion(sender, instance, **kwargs):
                 remaining_payment = 0
             customer.save()
 
-# Handle MoneyIncome creation
 @receiver(post_save, sender=MoneyIncome)
 def update_debt_on_payment(sender, instance, created, **kwargs):
     customer_name = instance.money_from
 
-    # Update individual customer records
     customers = Customer.objects.filter(customer_name=customer_name).order_by('date_of_buying')
     
     remaining_payment = instance.total
@@ -610,12 +505,12 @@ def update_debt_on_payment(sender, instance, created, **kwargs):
         if customer.debt > 0:
             if remaining_payment >= customer.debt:
                 remaining_payment -= customer.debt
-                customer.paid += customer.debt  # Ensure correct increment
+                customer.paid += customer.debt 
                 customer.debt = 0
                 customer.notes = 'Debt has been paid.'
             else:
                 customer.debt -= remaining_payment
-                customer.paid += remaining_payment  # Ensure correct increment
+                customer.paid += remaining_payment 
                 customer.notes = 'Partial payment made.'
                 remaining_payment = 0
             customer.save()
@@ -623,26 +518,17 @@ def update_debt_on_payment(sender, instance, created, **kwargs):
 
 #---------------------------------------------------------------
 
-#Creating the MoneyIncome Model  /Done/
 class Payment(models.Model):
     user = models.ForeignKey(User,on_delete=models.CASCADE)
-    # Money Comming from
     money_for = models.CharField(max_length=250)
-    # Total Value Incoming
     total = models.FloatField(default=0)
-    # Date
     date = models.DateField(null=True,blank=True)
-    # notes
     notes = models.CharField(max_length=400,null=True,blank=True)
 
     def __str__(self):
         return f'Paid for: {self.money_for} Date: {self.date} Total: {self.total}'
     
 #---------------------------------------------------------------
-# Defining The functions to Update Related Tables
-# On Payment
-
-# /Done Update MoneyFund by Payment/
 @receiver(post_save,sender=Payment)
 def update_money_on_payment (sender,instance,**kwargs):
     money_fund = MoneyFund.objects.get(user=instance.user)
