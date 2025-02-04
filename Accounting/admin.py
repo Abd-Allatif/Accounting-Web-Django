@@ -27,7 +27,6 @@ admin.site.register(MoneyIncome)
 admin.site.register(Payment)
 admin.site.register(CustomerName)
 admin.site.register(Inventory)
-#admin.site.register(CashInventory)
 
 
 
