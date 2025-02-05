@@ -97,19 +97,37 @@ def update_permanant_fund_on_edit(sender, instance, **kwargs):
         pass
 
 class Type(models.Model):
-    type = models.CharField(max_length=50,primary_key=True)
+    type = models.CharField(max_length=50)
     user = models.ForeignKey(User,on_delete=models.CASCADE)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['user', 'type'], 
+                name='unique_user_type'
+            )
+        ]
+
     def __str__(self):
         return f'{self.type}'
 
 class Supplies(models.Model):
     user = models.ForeignKey(User,on_delete=models.CASCADE)
     type = models.ForeignKey(Type,on_delete=models.CASCADE,default="")
-    supply_name = models.CharField(max_length=50,primary_key=True)
+    supply_name = models.CharField(max_length=50)
     unit = models.CharField(max_length=10,default='Peace')
     countity = models.FloatField(default=0)
     buy_price = models.FloatField(default=0)
     sell_price = models.FloatField(default=0)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['user', 'supply_name'], 
+                name='unique_user_supply'
+            )
+        ]
+
     def __str__(self):
         return f'{self.supply_name}'
 
@@ -184,9 +202,17 @@ def handle_dispatch_update(sender, instance, **kwargs):
 
 class CustomerName(models.Model):
     user = models.ForeignKey(User,on_delete=models.CASCADE)
-    customer_name = models.CharField(max_length=50,primary_key=True)
+    customer_name = models.CharField(max_length=50)
     total_debt = models.FloatField(null=True,blank=True,default=0)
     
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['user', 'customer_name'], 
+                name='unique_user_customer_name'
+            )
+        ]
+
     def __str__(self):
         return f'{self.customer_name}'
 
@@ -289,14 +315,21 @@ def handle_customer_deletion(sender, instance, **kwargs):
 #---------------------------------------------------------------
 class Employee(models.Model):
     user = models.ForeignKey(User,on_delete=models.CASCADE)
-    employee_name = models.CharField(max_length=50,primary_key=True)
+    employee_name = models.CharField(max_length=50)
     date_of_employment = models.DateField(blank=True,null=True)
     salary = models.FloatField(default=0)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['user', 'employee_name'], 
+                name='unique_user_employee_name'
+            )
+        ]
 
     def __str__(self):
         return f'{self.employee_name}'
 
-#Creating the MoneyFund Model /Done/
 class MoneyFund(models.Model):
     user = models.OneToOneField(User,on_delete=models.CASCADE)
     permanant_fund = models.FloatField(default=0)
@@ -350,14 +383,14 @@ def update_money_on_edit(sender,instance,**kwargs):
 @receiver(post_save,sender=Sell)
 def update_supply_on_sells(sender,instance,**kwargs):
      if instance.supply.pk:
-         supply = Supplies.objects.get(pk = instance.supply)
+         supply = Supplies.objects.get(supply_name = instance.supply)
          if supply:   
              supply.countity -= instance.countity
              supply.save()
 
 @receiver(post_delete,sender=Sell)
 def update_supply_delete_on_sells(sender,instance,**kwargs):
-    supply = Supplies.objects.get(pk = instance.supply)
+    supply = Supplies.objects.get(supply_name = instance.supply)
 
     if supply.pk:
         supply.countity += instance.countity
@@ -368,7 +401,7 @@ def update_supply_edit_on_sells(sender,instance,**kwargs):
     if instance.pk:
         old_intance = Sell.objects.get(pk= instance.pk)
         old_countity = old_intance.countity
-        supply = Supplies.objects.get(pk= instance.supply)
+        supply = Supplies.objects.get(supply_name= instance.supply)
         if supply:
             supply.countity += old_countity
             supply.save()
@@ -439,7 +472,7 @@ def update_supply_on_receipts(sender, instance, **kwargs):
 
 @receiver(post_delete,sender=Reciept)
 def update_supply_delete_on_receipts(sender,instance,**kwargs):
-    supply = Supplies.objects.get(pk = instance.supply)
+    supply = Supplies.objects.get(supply_name = instance.supply)
 
     if supply.pk:
         supply.countity -= instance.countity 
@@ -450,7 +483,7 @@ def update_supply_edit_on_receipt(sender,instance,**kwargs):
     if instance.pk:
         old_intance = Reciept.objects.get(pk= instance.pk)
         old_countity = old_intance.countity
-        supply = Supplies.objects.get(pk= instance.supply)
+        supply = Supplies.objects.get(supply_name= instance.supply)
         if supply:
             supply.countity -= old_countity
             supply.save()

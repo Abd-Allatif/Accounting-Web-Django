@@ -1,6 +1,6 @@
 import pandas as pd
 import logging
-from django.http import HttpResponseBadRequest, JsonResponse
+from django.http import JsonResponse
 from django.db import  transaction
 from django.http import HttpResponse
 from .models import *

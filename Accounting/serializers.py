@@ -48,11 +48,13 @@ class TypeSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 class SuppliesSerializer(serializers.ModelSerializer):
+    type = serializers.StringRelatedField()
     class Meta:
         model = Supplies
         fields = '__all__'
 
 class DispatchSupplySerializer(serializers.ModelSerializer):
+    supply = serializers.StringRelatedField()
     class Meta:
         model = DispatchSupply
         fields = '__all__'
@@ -63,6 +65,8 @@ class CustomerNameSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 class CustomerSerializer(serializers.ModelSerializer):
+    customer_name = serializers.StringRelatedField()
+    supply = serializers.StringRelatedField()
     class Meta:
         model = Customer
         fields = '__all__'
@@ -78,16 +82,20 @@ class MoneyFundSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 class SellSerializer(serializers.ModelSerializer):
+    supply = serializers.StringRelatedField()
     class Meta:
         model = Sell
         fields = '__all__'
 
 class RecieptSerializer(serializers.ModelSerializer):
+    type = serializers.StringRelatedField()
+    supply = serializers.StringRelatedField()
     class Meta:
         model = Reciept
         fields = '__all__'
 
 class MoneyIncomeSerializer(serializers.ModelSerializer):
+    money_from = serializers.StringRelatedField()
     class Meta:
         model = MoneyIncome
         fields = '__all__'
