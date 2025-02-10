@@ -141,6 +141,10 @@ WSGI_APPLICATION = 'Accounting.wsgi.application'
 
 DATABASES = {
     'default': {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
+    },
+    'mySql': {
        'ENGINE': os.getenv('DB_ENGINE'),
        'NAME': os.getenv('DB_NAME'),
        'USER': os.getenv('DB_USER'),
@@ -150,8 +154,14 @@ DATABASES = {
     }
 }
 
+
 # Django will use the Mysql Client db if its exists other wise it will use the deafult SqLite db
 if 'DB_HOST' in os.environ:
+    DATABASES['mySql'] = dj_database_url.config(
+        conn_max_age=500,
+        conn_health_checks=True,
+    )
+else:
     DATABASES['default'] = dj_database_url.config(
         conn_max_age=500,
         conn_health_checks=True,
