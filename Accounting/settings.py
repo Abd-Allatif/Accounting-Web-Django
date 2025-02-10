@@ -33,7 +33,7 @@ GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
 
-ALLOWED_HOSTS = []
+# ALLOWED_HOSTS = ['https://web-production-2a2b.up.railway.app/']
 
 SECURE_HSTS_SECONDS = 31536000  # 1 year
 SECURE_HSTS_INCLUDE_SUBDOMAINS = True
@@ -78,6 +78,7 @@ REST_FRAMEWORK = {
     }
 
 ALLOWED_HOSTS = [
+    'https://web-production-2a2b.up.railway.app/',
     'localhost',
     '127.0.0.1',
     ]
