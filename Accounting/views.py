@@ -1439,8 +1439,9 @@ class ImageAnalysisView(APIView):
             "data": responses,
             "status": "success"
             })
+        
         except  Exception as e:
-            return Response({'Error':e},status=status.HTTP_400_BAD_REQUEST)
+            return Response({'Error':str(e)},status=status.HTTP_400_BAD_REQUEST)
 
     
 #--------------------------------------------------------------------------

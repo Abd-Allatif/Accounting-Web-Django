@@ -14,7 +14,6 @@ from datetime import timedelta
 from pathlib import Path
 import os
 import dotenv
-from decouple import config
 
 dotenv.load_dotenv()
 
