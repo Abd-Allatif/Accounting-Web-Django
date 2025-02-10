@@ -1,1 +1,1 @@
-web: python manage.py migrate && python manage.py collectstatic --no-input && gunicorn Accounting.wsgi
+web: python manage.py migrate && python manage.py collectstatic --no-input && gunicorn Accounting.wsgi.application
