@@ -68,6 +68,8 @@ ALLOWED_HOSTS = [
     '127.0.0.1',
     ]
 
+CSRF_TRUSTED_ORIGINS = ['https://accounting-web-django-production.up.railway.app']
+
 CORS_ALLOWED_ORIGINS = [
     'https://accounting-web-django-production.up.railway.app',
     'http://localhost:5173',

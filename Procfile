@@ -1,1 +1,1 @@
-web: gunicorn Accounting.wsgi.app
+web: gunicorn Accounting.wsgi
