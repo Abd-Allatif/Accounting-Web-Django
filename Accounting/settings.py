@@ -1,6 +1,7 @@
 from datetime import timedelta
 from pathlib import Path
 import os
+from pickle import TRUE
 import dotenv
 import dj_database_url
 
@@ -59,11 +60,13 @@ REST_FRAMEWORK = {
     }
 
 ALLOWED_HOSTS = [
+    'accounting-web-django-production.up.railway.app/',
     'localhost',
     '127.0.0.1',
     ]
 
 CORS_ALLOWED_ORIGINS = [
+    'https://accounting-web-django-production.up.railway.app/',
     'http://localhost:5173',
     'http://127.0.0.1:5173'
 ]
@@ -137,11 +140,9 @@ DATABASES = {
 
 
 # Django will use the Mysql Client db if its exists other wise it will use the deafult SqLite db
-if 'DB_HOST' in os.environ:
-    DATABASES['mySql'] = dj_database_url.config(
-        conn_max_age=500,
-        conn_health_checks=True,
-    )
+ENABLE_MYSQL = False
+if os.getenv("ENVIROMENT") == "production" or ENABLE_MYSQL == TRUE:
+    DATABASES['default'] = dj_database_url.parse(os.getenv("DATABASE_URL"))
 else:
     DATABASES['default'] = dj_database_url.config(
         conn_max_age=500,
