@@ -133,17 +133,13 @@ WSGI_APPLICATION = 'Accounting.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    },
-    'mySql': {
        'ENGINE': os.getenv('DB_ENGINE'),
        'NAME': os.getenv('DB_NAME'),
        'USER': os.getenv('DB_USER'),
        'PASSWORD': os.getenv('DB_PASSWORD'),
        'HOST': os.getenv('DB_HOST'),
        'PORT': os.getenv('DB_PORT'),
-    }
+    },
 }
 
 
@@ -151,11 +147,7 @@ DATABASES = {
 ENABLE_MYSQL = False
 if os.getenv("ENVIROMENT") == "production" or ENABLE_MYSQL == TRUE:
     DATABASES['default'] = dj_database_url.parse(os.getenv("DATABASE_URL"))
-else:
-    DATABASES['default'] = dj_database_url.config(
-        conn_max_age=500,
-        conn_health_checks=True,
-    )
+
 
 # Password validation
 # https://docs.djangoproject.com/en/5.1/ref/settings/#auth-password-validators
