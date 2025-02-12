@@ -4,6 +4,9 @@ import os
 from pickle import TRUE
 import dotenv
 import dj_database_url
+import pymysql
+
+pymysql.install_as_MySQLdb()
 
 dotenv.load_dotenv()
 
