@@ -236,7 +236,7 @@ class Customer(models.Model):
 def capture_old_customer_instance(sender, instance, **kwargs):
     if instance.pk:
         try:
-            instance._old_instance = Customer.objects.get(pk=instance.pk)
+            instance._old_instance = Customer.objects.get(user=instance.user,pk=instance.pk)
         except Customer.DoesNotExist:
             instance._old_instance = None
 
@@ -249,14 +249,14 @@ def capture_old_customer_value(sender, instance, **kwargs):
 @receiver(post_save, sender=Customer)
 def handle_customer_save(sender, instance, created, **kwargs):
     money_fund = MoneyFund.objects.get(user=instance.user)
-    customer_name, _ = CustomerName.objects.get_or_create(customer_name=instance.customer_name.customer_name)
+    customer_name, _ = CustomerName.objects.get_or_create(user=instance.user,customer_name=instance.customer_name.customer_name)
     supply = instance.supply
 
     # Handle creation and updates
     if created:
         if instance.debt == 0:
             if not money_fund:
-                money_fund = MoneyFund.objects.create(permanant_fund=0, sells_fund=0)
+                money_fund = MoneyFund.objects.create(user=instance.user,permanant_fund=0, sells_fund=0)
             money_fund.sells_fund += instance.total
         elif instance.debt > 0:
             if instance.paid > 0:
