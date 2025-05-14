@@ -106,6 +106,7 @@ class PaymentSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 class InventorySerializer(serializers.ModelSerializer):
+    supply = serializers.StringRelatedField()
     class Meta:
         model = Inventory
         fields = '__all__'

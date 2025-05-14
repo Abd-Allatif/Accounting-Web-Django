@@ -178,7 +178,7 @@ def handle_dispatch_deletion(sender, instance, **kwargs):
 @receiver(pre_save, sender=DispatchSupply)
 def handle_dispatch_update(sender, instance, **kwargs):
     try:
-        original = DispatchSupply.objects.get(pk=instance.pk)
+        original = DispatchSupply.objects.get(pk=instance.pk,user=instance.user)
     except DispatchSupply.DoesNotExist:
         original = None
 
@@ -355,7 +355,7 @@ def update_money_on_sell (sender,instance,**kwargs):
     money_fund = MoneyFund.objects.get(user=instance.user)
     
     if not money_fund:
-        money_fund = MoneyFund.objects.create(permanant_fund = 0,sells_fund = 0)
+        money_fund = MoneyFund.objects.create(user=instance.user,permanant_fund = 0,sells_fund = 0)
     
     money_fund.sells_fund += instance.total
     money_fund.save()
@@ -372,7 +372,7 @@ def update_money_delete_on_sell (sender,instance,**kwargs):
 @receiver(pre_save,sender=Sell)
 def update_money_on_edit(sender,instance,**kwargs):
     if instance.pk:
-        old_instance = Sell.objects.get(pk=instance.pk)
+        old_instance = Sell.objects.get(pk=instance.pk,user=instance.user)
         old_total = old_instance.total
         money_fund = MoneyFund.objects.get(user=instance.user)
         if money_fund:
@@ -383,14 +383,14 @@ def update_money_on_edit(sender,instance,**kwargs):
 @receiver(post_save,sender=Sell)
 def update_supply_on_sells(sender,instance,**kwargs):
      if instance.supply.pk:
-         supply = Supplies.objects.get(supply_name = instance.supply)
+         supply = Supplies.objects.get(supply_name = instance.supply,user=instance.user)
          if supply:   
              supply.countity -= instance.countity
              supply.save()
 
 @receiver(post_delete,sender=Sell)
 def update_supply_delete_on_sells(sender,instance,**kwargs):
-    supply = Supplies.objects.get(supply_name = instance.supply)
+    supply = Supplies.objects.get(supply_name = instance.supply,user=instance.user)
 
     if supply.pk:
         supply.countity += instance.countity
@@ -399,9 +399,9 @@ def update_supply_delete_on_sells(sender,instance,**kwargs):
 @receiver(pre_save,sender=Sell)
 def update_supply_edit_on_sells(sender,instance,**kwargs):
     if instance.pk:
-        old_intance = Sell.objects.get(pk= instance.pk)
+        old_intance = Sell.objects.get(pk= instance.pk,user=instance.user)
         old_countity = old_intance.countity
-        supply = Supplies.objects.get(supply_name= instance.supply)
+        supply = Supplies.objects.get(supply_name= instance.supply,user=instance.user)
         if supply:
             supply.countity += old_countity
             supply.save()
@@ -427,7 +427,7 @@ def update_money_on_reciepts(sender,instance,**kwargs):
     money_fund = MoneyFund.objects.get(user=instance.user)
 
     if not money_fund:
-        money_fund = MoneyFund.objects.create(permanant_fund = 0,sells_fund = 0)
+        money_fund = MoneyFund.objects.create(user=instance.user,permanant_fund = 0,sells_fund = 0)
     
     money_fund.permanant_fund -= instance.total
     money_fund.save()
@@ -443,7 +443,7 @@ def update_money_delete_on_reciepts(sender,instance,**kwargs):
 @receiver(pre_save,sender=Reciept)
 def update_money_ediut_on_reciepts(sender,instance,**kwargs):
     if instance.pk:
-        old_instance = Reciept.objects.get(pk=instance.pk)
+        old_instance = Reciept.objects.get(pk=instance.pk,user = instance.user)
         old_total = old_instance.total
         money_fund = MoneyFund.objects.get(user=instance.user)
         if money_fund:
@@ -455,6 +455,7 @@ def update_money_ediut_on_reciepts(sender,instance,**kwargs):
 @receiver(post_save, sender=Reciept)
 def update_supply_on_receipts(sender, instance, **kwargs):
     supply, created = Supplies.objects.get_or_create(
+        user = instance.user,
         supply_name= instance.supply.supply_name,
         defaults={
             'countity': instance.countity,
@@ -472,7 +473,7 @@ def update_supply_on_receipts(sender, instance, **kwargs):
 
 @receiver(post_delete,sender=Reciept)
 def update_supply_delete_on_receipts(sender,instance,**kwargs):
-    supply = Supplies.objects.get(supply_name = instance.supply)
+    supply = Supplies.objects.get(supply_name = instance.supply,user=instance.user)
 
     if supply.pk:
         supply.countity -= instance.countity 
@@ -481,9 +482,9 @@ def update_supply_delete_on_receipts(sender,instance,**kwargs):
 @receiver(pre_save,sender=Reciept)
 def update_supply_edit_on_receipt(sender,instance,**kwargs):
     if instance.pk:
-        old_intance = Reciept.objects.get(pk= instance.pk)
+        old_intance = Reciept.objects.get(pk= instance.pk,user=instance.user)
         old_countity = old_intance.countity
-        supply = Supplies.objects.get(supply_name= instance.supply)
+        supply = Supplies.objects.get(supply_name= instance.supply,user=instance.user)
         if supply:
             supply.countity -= old_countity
             supply.save()
@@ -504,7 +505,7 @@ class MoneyIncome(models.Model):
 def reverse_debt_on_payment_deletion(sender, instance, **kwargs):
     customer_name = instance.money_from
 
-    customers = Customer.objects.filter(customer_name=customer_name).order_by('date_of_buying')
+    customers = Customer.objects.filter(customer_name=customer_name,user=instance.user).order_by('date_of_buying')
     
     remaining_payment = instance.total
 
@@ -528,7 +529,7 @@ def reverse_debt_on_payment_deletion(sender, instance, **kwargs):
 def update_debt_on_payment(sender, instance, created, **kwargs):
     customer_name = instance.money_from
 
-    customers = Customer.objects.filter(customer_name=customer_name).order_by('date_of_buying')
+    customers = Customer.objects.filter(customer_name=customer_name,user=instance.user).order_by('date_of_buying')
     
     remaining_payment = instance.total
 
@@ -567,7 +568,7 @@ def update_money_on_payment (sender,instance,**kwargs):
     money_fund = MoneyFund.objects.get(user=instance.user)
     
     if not money_fund:
-        money_fund = MoneyFund.objects.create(permanant_fund = 0,sells_fund = 0)
+        money_fund = MoneyFund.objects.create(user=instance.user,permanant_fund = 0,sells_fund = 0)
     
     money_fund.permanant_fund -= instance.total
     money_fund.save()
@@ -584,7 +585,7 @@ def update_money_delete_on_payment (sender,instance,**kwargs):
 @receiver(pre_save,sender=Payment)
 def update_money_on_edit(sender,instance,**kwargs):
     if instance.pk:
-        old_instance = Payment.objects.get(pk=instance.pk)
+        old_instance = Payment.objects.get(pk=instance.pk,user=instance.user)
         old_total = old_instance.total
         money_fund = MoneyFund.objects.get(user=instance.user)
         if money_fund:
@@ -624,6 +625,7 @@ class Inventory(models.Model):
 
         # Retrieve data from the models
         sales = Sell.objects.filter(date__range=[self.start_date, self.end_date], supply=self.supply).aggregate(Sum('countity'))['countity__sum'] or 0
+        debt_paid = Customer.objects.filter(date_of_buying__range=[self.start_date, self.end_date],supply=self.supply,debt=0 ).aggregate(Sum('countity'))['countity__sum'] or 0
         purchases = Reciept.objects.filter(date__range=[self.start_date, self.end_date], supply=self.supply).aggregate(Sum('countity'))['countity__sum'] or 0
         unpaid_customers_query = Customer.objects.filter(date_of_buying__range=[self.start_date, self.end_date], debt__gt=0, supply=self.supply)
         unpaid_customers_list = unpaid_customers_query.values_list('customer_name__customer_name', flat=True)
@@ -639,7 +641,7 @@ class Inventory(models.Model):
         dispatched_value = sum(dispatch.buy_price * dispatch.countity for dispatch in dispatches)
 
         # Calculate updated quantities and funds
-        self.sales_countity = sales
+        self.sales_countity = sales + debt_paid
         self.purchase_countity = purchases
         self.debt_countity = unpaid_countity
         self.dispatched_supply = dispatched_countity

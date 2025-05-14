@@ -234,7 +234,7 @@ def manage_supplies(request,username):
            
             if user_data:
                 user_instance = User.objects.get(user_name = user_data)
-                type_instance = Type.objects.get(type = types)
+                type_instance = Type.objects.get(user=user_instance,type = types)
                 Supplies.objects.create(user= user_instance,type = type_instance,
                                         supply_name=supplies,unit = unit,
                                         countity=countity,buy_price=buy_price,
