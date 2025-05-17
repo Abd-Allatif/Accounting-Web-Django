@@ -108,7 +108,7 @@ def setupAccount(request,username):
        
         if types:
             for type_name in types:
-                Type.objects.get_or_create(user=user, type=type_name)
+                Type.objects.create(user=user, type=type_name)
                
 
         # Save customer names
@@ -128,10 +128,6 @@ def setupAccount(request,username):
     except User.DoesNotExist:
         logger.error("User not found for setup")
         return Response({'error': 'User not found'}, status=status.HTTP_400_BAD_REQUEST)
-    except Exception as e:
-        logger.error(f"SetupAccount error: {e}")
-        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
 # ------------------------------------------------------------------------------------
 
 # Managing Types End Points
