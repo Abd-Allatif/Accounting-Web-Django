@@ -1,3 +1,4 @@
+from re import S
 from django.db import models
 from django.db.models import Sum
 from django.db.models.signals import pre_save,post_delete,post_save,pre_delete
@@ -5,7 +6,7 @@ from django.dispatch import receiver
 import bcrypt
 from django.utils.crypto import get_random_string
 from django.contrib.auth.models import BaseUserManager,AbstractBaseUser,PermissionsMixin
-from .calculations import calculateTotalPrice
+from .calculations import calculateTotalPrice, calculateUnit
 
 # All Models Have Been Finnshed
 
@@ -603,12 +604,19 @@ class Inventory(models.Model):
     initial_fund = models.FloatField(blank=True)
     final_fund = models.FloatField(blank=True)
     sales_countity = models.FloatField(default=0, blank=True)
+    sales_value = models.FloatField(default=0,blank=True)
+
     purchase_countity = models.FloatField(default=0, blank=True)
+    purchase_value = models.FloatField(default=0,blank=True)
+    
     debt_countity = models.FloatField(default=0, blank=True)
     unpaid_customers = models.TextField(blank=True)
     discrepancy = models.FloatField(default=0, blank=True)
     dispatched_supply = models.FloatField(default=0, blank=True)
     dispatched_value = models.FloatField(default=0, blank=True)
+    
+    profits = models.FloatField(default=0,blank=True)
+
     start_date = models.DateField()
     end_date = models.DateField()
     inventory_date = models.DateField(auto_now=True)
@@ -625,6 +633,10 @@ class Inventory(models.Model):
 
         # Retrieve data from the models
         sales = Sell.objects.filter(date__range=[self.start_date, self.end_date], supply=self.supply).aggregate(Sum('countity'))['countity__sum'] or 0
+        
+        sells_value = Sell.objects.filter(date__range=[self.start_date,self.end_date],supply=self.supply).aggregate(Sum('total'))['total__sum'] or 0
+        purchases_value = Reciept.objects.filter(date__range=[self.start_date,self.end_date],supply=self.supply).aggregate(Sum('buy_price'))['buy_price__sum'] or 0
+
         debt_paid = Customer.objects.filter(date_of_buying__range=[self.start_date, self.end_date],supply=self.supply,debt=0 ).aggregate(Sum('countity'))['countity__sum'] or 0
         purchases = Reciept.objects.filter(date__range=[self.start_date, self.end_date], supply=self.supply).aggregate(Sum('countity'))['countity__sum'] or 0
         unpaid_customers_query = Customer.objects.filter(date_of_buying__range=[self.start_date, self.end_date], debt__gt=0, supply=self.supply)
@@ -638,19 +650,26 @@ class Inventory(models.Model):
         # Retrieve dispatched data
         dispatches = DispatchSupply.objects.filter(dispatch_date__range=[self.start_date, self.end_date], supply=self.supply)
         dispatched_countity = dispatches.aggregate(Sum('countity'))['countity__sum'] or 0
-        dispatched_value = sum(dispatch.buy_price * dispatch.countity for dispatch in dispatches)
+        dispatched_value = sum(dispatch.buy_price * dispatch.countity * calculateUnit(dispatch.supply.unit) for dispatch in dispatches)
+       
 
         # Calculate updated quantities and funds
         self.sales_countity = sales + debt_paid
+        self.sales_value = sells_value
         self.purchase_countity = purchases
+        self.purchase_value = purchases_value
         self.debt_countity = unpaid_countity
         self.dispatched_supply = dispatched_countity
         self.dispatched_value = dispatched_value
-        self.final_countity = self.initial_countity + purchases - sales - unpaid_countity - dispatched_countity
+        self.final_countity = self.initial_countity + (purchases - sales - unpaid_countity - dispatched_countity)
         self.unpaid_customers = unpaid_customers_str
 
         expected_countity = self.initial_countity + purchases - sales - dispatched_countity
         self.discrepancy = self.final_countity - expected_countity
+
+        # Calculating Profits
+        self.profits = (sells_value - purchases_value) - dispatched_value
+        
 
         # Check if final countity is accurate
         if self.final_countity != self.initial_countity + purchases - sales - unpaid_countity - dispatched_countity:
@@ -661,9 +680,9 @@ class Inventory(models.Model):
         # Calculate final fund and handle discrepancies
         if money_fund:
             self.final_fund = self.initial_fund + income_total - expense_total - dispatched_value
-            if self.discrepancy != 0:
-                money_fund.sells_fund += self.discrepancy
-                money_fund.save()
+            # if self.discrepancy != 0:
+            #     money_fund.sells_fund += self.discrepancy
+            #     money_fund.save()
             if self.final_fund < 0:
                 self.notes += ' Warning: Final fund is negative.'
 

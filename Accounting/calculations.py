@@ -1,4 +1,3 @@
-import math
 
 units = ['Unit', 'Kgram', 'Gram', 'Piece']
 
@@ -8,6 +7,14 @@ conversionRates = {
     'piece': 1,       # 1 Piece (assuming it's the same as 1 Unit for simplicity)
     'unit': "Error"         # 1 Unit (assuming it's the same as 1 Piece for simplicity)
 }
+
+def calculateUnit(unit:str):
+    unit = unit.lower()
+    if unit not in conversionRates:
+        raise ValueError(f"Invalid unit: {unit}")
+    conversionRate = conversionRates[unit]
+
+    return conversionRate
 
 def calculateTotalPrice(quantity: int, unit: str, pricePerUnit: float) -> float:
     unit = unit.lower()
