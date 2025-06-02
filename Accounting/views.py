@@ -1570,11 +1570,13 @@ def export_all_data_excel(request, username):
     return response
 
 def make_timezone_aware(df):
+    date_format='%m/%d/%Y'
     for col in df.columns:
         if pd.api.types.is_datetime64_any_dtype(df[col]):
             # Convert naive datetime to UTC-aware
             if df[col].dt.tz is None:
                 df[col] = df[col].dt.tz_localize('UTC')
+
     return df
 
 def check_duplicate(model_class, user, data):
@@ -1651,11 +1653,15 @@ def import_Data(request, username):
                 df = make_timezone_aware(df)
                 df = df.where(pd.notnull(df), None)
                 
+                if sheet_name == "DispatchSupply":
+                    continue
+
                 for _, row in df.iterrows():
                     data = row.to_dict()
+
                     if check_duplicate(model_class, user, data):
                         continue
-                    
+
                     instance = model_class(user=user, **data)
                     instance.save()
         
