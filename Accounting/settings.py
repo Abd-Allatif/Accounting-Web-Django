@@ -63,17 +63,17 @@ REST_FRAMEWORK = {
     }
 
 ALLOWED_HOSTS = [
-    'accounting-web-django-production.up.railway.app',
+    'accounting-web-django.vercel.app/',
     'accounting-web-react-production.up.railway.app',
     'localhost',
     '127.0.0.1',
     ]
 
-CSRF_TRUSTED_ORIGINS = ['https://accounting-web-django.vercel.app/',
+CSRF_TRUSTED_ORIGINS = ['https://accounting-web-django.vercel.app',
                         'https://accounting-web-react-production.up.railway.app']
 
 CORS_ALLOWED_ORIGINS = [
-    'https://accounting-web-django.vercel.app/',
+    'https://accounting-web-django.vercel.app',
     'http://localhost:5173',
     'http://127.0.0.1:5173',
     'https://accounting-web-react-production.up.railway.app',
