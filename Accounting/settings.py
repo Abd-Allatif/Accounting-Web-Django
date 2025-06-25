@@ -63,7 +63,7 @@ REST_FRAMEWORK = {
     }
 
 ALLOWED_HOSTS = [
-    'accounting-web-django.vercel.app/',
+    'accounting-web-django.vercel.app',
     'accounting-web-react-production.up.railway.app',
     'localhost',
     '127.0.0.1',
